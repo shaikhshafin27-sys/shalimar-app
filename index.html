@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shalimar - Premium Paan & Sweets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <style>
+        :root {
+            --primary-color: #009432;
+            --primary-gradient: linear-gradient(135deg, #009432 0%, #006266 100%);
+            --gold-color: #f1c40f; 
+            --gold-gradient: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+            --secondary-color: #f4f7f6; 
+            --text-color: #2d3436;
+            --light-text: #636e72;
+            --border-color: #dfe6e9;
+            --white: #ffffff;
+            --danger: #e74c3c; 
+            --success: #27ae60;
+        }
+
+        body { margin: 0; font-family: 'Poppins', sans-serif; background-color: #e0e5e2; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: var(--text-color); }
+        .mobile-container { width: 100%; max-width: 414px; height: 100vh; max-height: 896px; background-color: var(--secondary-color); border-radius: 0px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        @media (min-width: 420px) { .mobile-container { border-radius: 35px; box-shadow: 0 25px 70px rgba(0,0,0,0.25); height: 90vh; border: 8px solid #333; } }
+
+        #storeClosedBanner { display: none; position: absolute; top: 0; left: 0; right: 0; background: rgba(231, 76, 60, 0.95); color: white; padding: 12px; text-align: center; font-weight: 700; font-size: 0.9em; z-index: 1000; backdrop-filter: blur(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        .page { position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.4s ease; background-color: var(--secondary-color); display: flex; flex-direction: column; z-index: 1; transform: scale(0.98); }
+        .page.active { opacity: 1; visibility: visible; z-index: 5; transform: scale(1); }
+
+        .auth-content { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background: var(--secondary-color); }
+        .auth-card { background: white; width: 100%; border-radius: 25px; box-shadow: 0 20px 40px rgba(0, 148, 50, 0.08); overflow: hidden; position: relative; }
+        .auth-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: var(--primary-gradient); }
+        .auth-header { text-align: center; padding: 40px 30px 10px 30px; }
+        .logo-circle { width: 75px; height: 75px; margin: 0 auto 15px auto; background: rgba(0, 148, 50, 0.1); color: var(--primary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.2em; box-shadow: 0 8px 20px rgba(0, 148, 50, 0.2); }
+        .auth-header h1 { font-size: 1.8em; margin: 0; color: #2d3436; font-weight: 800; }
+        .auth-header p { color: #b2bec3; font-size: 0.9em; margin-top: 5px; }
+        .auth-body { padding: 30px; }
+        .input-label { font-size: 0.8em; color: #636e72; font-weight: 600; margin-bottom: 5px; display: block; margin-left: 5px; letter-spacing: 0.5px;}
+        .input-group { position: relative; margin-bottom: 20px; }
+        .input-group i { position: absolute; top: 45px; left: 15px; transform: translateY(-50%); color: #b2bec3; transition: color 0.3s; }
+        .auth-input { width: 100%; padding: 15px 15px 15px 45px; background: #f8f9fa; border: 2px solid #f1f2f6; border-radius: 14px; font-size: 1em; outline: none; transition: all 0.3s; box-sizing: border-box; font-family: 'Poppins', sans-serif; color: #333; }
+        .btn-main { width: 100%; padding: 16px; background: var(--primary-gradient); color: var(--white); border: none; border-radius: 14px; font-size: 1.1em; font-weight: 600; cursor: pointer; box-shadow: 0 10px 25px rgba(0, 148, 50, 0.3); margin-bottom: 15px; transition: transform 0.2s, box-shadow 0.2s; letter-spacing: 0.5px; }
+        .btn-main:active { transform: scale(0.96); box-shadow: 0 5px 15px rgba(0, 148, 50, 0.2); }
+        .btn-google { background: white; color: #333; border: 1px solid #dfe6e9; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .auth-switch { text-align: center; margin-top: 15px; font-size: 0.9em; color: #636e72; }
+        .auth-switch a { color: var(--primary-color); font-weight: 700; text-decoration: none; }
+        #auth-error { color: var(--danger); text-align: center; margin-bottom: 15px; font-size: 0.9em; background: rgba(231, 76, 60, 0.1); padding: 10px; border-radius: 8px; display: none; font-weight: 500; }
+
+        .app-header { background: var(--primary-gradient); padding: 45px 25px 25px 25px; color: var(--white); border-bottom-left-radius: 35px; border-bottom-right-radius: 35px; box-shadow: 0 12px 30px rgba(0, 148, 50, 0.25); position: relative; overflow: hidden; }
+        .app-header::after { content: ''; position: absolute; right: -30px; top: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.08); border-radius: 50%; }
+        .header-top-zomato { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; position: relative; z-index: 2; }
+        .location-text { display: flex; flex-direction: column; color: white; cursor: pointer; flex: 1; }
+        .location-title { font-size: 1.1em; font-weight: 800; display: flex; align-items: center; gap: 5px; }
+        .location-subtitle { font-size: 0.8em; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+        .search-bar { background: white; border-radius: 12px; display: flex; align-items: center; padding: 0 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); position: relative; z-index: 2;}
+        .search-bar input { width: 100%; padding: 15px 10px; border: none; background: transparent; font-size: 0.95em; outline: none; font-family: 'Poppins', sans-serif; color: #2d3436; }
+        .search-bar .fa-search, .search-bar .fa-microphone { color: var(--primary-color); font-size: 1.1em; } 
+        .search-bar .fa-microphone { border-left: 1px solid #dfe6e9; padding-left: 15px; margin-left: 5px; cursor: pointer;}
+        
+        main { flex: 1; overflow-y: auto; padding: 0 20px 110px 20px; }
+        .category-section { display: flex; justify-content: flex-start; padding: 25px 5px; overflow-x: auto; gap: 15px; scroll-behavior: smooth; }
+        .category-section::-webkit-scrollbar { display: none; }
+        .category-item { text-align: center; cursor: pointer; transition: transform 0.2s; min-width: 70px;}
+        .category-icon { width: 60px; height: 60px; border-radius: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 8px 15px rgba(0,0,0,0.06); margin: 0 auto 8px auto; font-size: 1.6em; background: white; color: var(--primary-color); border: 1px solid rgba(0,148,50,0.2); }
+        .category-icon img { width: 35px; height: 35px; border-radius: 8px; object-fit: contain; }
+        .category-item.active-cat .category-icon { background: var(--primary-gradient); color: white; border: none; box-shadow: 0 10px 20px rgba(0, 148, 50, 0.3); transform: scale(1.05);}
+        .category-item p { margin:0; font-size: 0.8em; font-weight: 600; color: #2d3436; white-space: nowrap;}
+        
+        .section-title { font-size: 1.3em; font-weight: 800; margin: 25px 0 15px 0; color: #2d3436; }
+        .horizontal-scroll { display: flex; overflow-x: auto; padding-bottom: 25px; padding-top: 5px; gap: 18px; scroll-behavior: smooth; }
+        .horizontal-scroll::-webkit-scrollbar { display: none; }
+        .dishes-grid { display: flex; flex-wrap: wrap; gap: 15px; padding-bottom: 25px; }
+
+        .promo-banner { width: 100%; height: 160px; background: linear-gradient(135deg, #004d40, #009432); border-radius: 24px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; padding: 0 25px; box-sizing: border-box; color: white; box-shadow: 0 15px 30px rgba(0, 148, 50, 0.25); position: relative; overflow: hidden;}
+        .promo-banner::before { content: ''; position: absolute; top: -40px; left: -40px; width: 130px; height: 130px; background: rgba(255,255,255,0.06); border-radius: 50%; }
+        .promo-banner::after { content: ''; position: absolute; bottom: -30px; right: 50px; width: 80px; height: 80px; background: rgba(241, 196, 15, 0.1); border-radius: 50%; }
+        .promo-content { position: relative; z-index: 2; max-width: 60%; }
+        .promo-content h3 { margin: 0; font-size: 1.6em; font-weight: 800; color: var(--gold-color); text-shadow: 0 2px 5px rgba(0,0,0,0.3); line-height: 1.1;}
+        .promo-content p { margin: 6px 0 12px 0; font-size: 0.85em; opacity: 0.95; font-weight: 500;}
+        .promo-btn { background: var(--gold-gradient); color: #fff; border: none; padding: 8px 18px; border-radius: 20px; font-weight: 700; font-size: 0.8em; cursor: pointer; box-shadow: 0 6px 15px rgba(241, 196, 15, 0.4); text-transform: uppercase;}
+        .promo-banner img { height: 120%; position: absolute; right: -10px; bottom: -10px; transform: rotate(-15deg); filter: drop-shadow(0 15px 15px rgba(0,0,0,0.4)); z-index: 2; object-fit: contain; }
+
+        .card { flex-shrink: 0; width: 165px; background-color: var(--white); border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); overflow: hidden; position: relative; border: 1px solid rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+        .card img { width: 100%; height: 120px; object-fit: cover; }
+        .card-content { padding: 12px 15px 15px 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .card-content h3 { margin: 0; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700;}
+        .card-content p { color: var(--text-color); font-weight: 800; font-size: 1em; margin: 0;}
+        
+        .add-btn { background: var(--gold-gradient); color: var(--white); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; position: absolute; bottom: 12px; right: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.1em; box-shadow: 0 6px 15px rgba(241, 196, 15, 0.4); z-index: 3; }
+        
+        .fav-btn { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; color: #b2bec3; box-shadow: 0 4px 10px rgba(0,0,0,0.1); z-index: 5; cursor: pointer; transition: 0.3s; font-size: 1.1em; backdrop-filter: blur(5px);}
+        .fav-btn.active { color: #e74c3c; }
+
+        .zomato-rating { display: flex; align-items: center; gap: 6px; margin: 6px 0; cursor: pointer; border-radius: 6px; padding: 2px 4px 2px 0; }
+        .zomato-rating-box { background: #24963f; color: white; padding: 2px 6px; border-radius: 6px; font-size: 0.7em; font-weight: 700; display: flex; align-items: center; gap: 3px;}
+        .zomato-rating-count { font-size: 0.7em; color: #636e72; font-weight: 600; display:flex; align-items:center;}
+        .bestseller-tag, .offer-tag { position: absolute; top: 10px; left: 0; color: white; font-size: 0.65em; font-weight: 700; padding: 4px 10px; border-radius: 0 12px 12px 0; z-index: 2; box-shadow: 0 3px 8px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 3px; text-transform: uppercase;}
+        .bestseller-tag { background: linear-gradient(135deg, #e74c3c, #c0392b); } .offer-tag { background: linear-gradient(135deg, #27ae60, #2ecc71); top: 35px; }
+
+        nav { position: absolute; bottom: 0; left: 0; right: 0; height: 75px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.05); border-radius: 35px 35px 0 0; z-index: 10; padding: 0 35px; border-top: 1px solid rgba(255,255,255,0.5); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #b2bec3; cursor: pointer; transition: all 0.3s; }
+        .nav-item.active { color: var(--primary-color); transform: translateY(-5px); } 
+        .nav-item i { font-size: 1.5em; margin-bottom: 4px;} .nav-item p { margin: 0; font-size: 0.7em; font-weight: 600;}
+
+        #cart-fab-container { position: fixed; bottom: 90px; right: 25px; z-index: 100; }
+        .fab-btn { width: 65px; height: 65px; background: var(--gold-gradient); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-size: 1.6em; box-shadow: 0 10px 30px rgba(241, 196, 15, 0.4); cursor: pointer; border: 3px solid white; }
+        #cart-count { position: absolute; top: -3px; right: -3px; background-color: var(--danger); color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 0.85em; display: flex; justify-content: center; align-items: center; font-weight: 800; border: 2px solid white; }
+
+        .page-header { padding: 45px 20px 20px 20px; text-align: center; position: relative; background: var(--secondary-color); }
+        .page-header h2 { margin: 0; font-size: 1.4em; color: #2d3436; font-weight: 800; }
+        .back-btn { position: absolute; left: 20px; top: 46px; font-size: 1.3em; cursor: pointer; color: #2d3436; padding: 5px; transition: color 0.2s;}
+
+        .cart-item { display: flex; align-items: center; background: var(--white); padding: 15px; border-radius: 20px; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.04); }
+        .cart-item img { width: 70px; height: 70px; border-radius: 15px; object-fit: cover; margin-right: 15px; }
+        .cart-item h4 { margin: 0 0 5px 0; font-size: 1em; color: #2d3436;} .cart-item p { margin: 0; color: var(--primary-color); font-weight: 700;}
+        .qty-controls { display: flex; align-items: center; gap: 10px; background: #f5f6fa; padding: 6px 12px; border-radius: 25px;} .qty-controls button { background: white; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,0.1); color: var(--primary-color); font-weight: bold; font-size: 1.1em; }
+
+        .order-type-toggle { display: flex; background: #dfe6e9; border-radius: 14px; margin-bottom: 20px; padding: 5px; }
+        .toggle-btn { flex: 1; text-align: center; padding: 12px; font-weight: 700; cursor: pointer; border-radius: 10px; color: #636e72; transition: all 0.3s; font-size: 0.9em; }
+        .toggle-btn.active { color: var(--primary-color); box-shadow: 0 4px 10px rgba(0,0,0,0.05); background: var(--white); }
+
+        #map-container { height: 200px; width: 100%; border-radius: 18px; overflow: hidden; margin-top: 15px; margin-bottom: 15px; border: 3px solid var(--primary-color); display: none; }
+        .location-btn { background-color: #0984e3; color: var(--white); width: 100%; padding: 15px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; margin-bottom: 10px; font-size: 1em; }
+        .form-group { margin-bottom: 20px; } .form-group label { display: block; margin-bottom: 8px; font-weight: 700; color: #2d3436; font-size: 0.9em; }
+        .form-control { width: 100%; padding: 15px; border: 2px solid #dfe6e9; border-radius: 14px; box-sizing: border-box; font-family: inherit; background: #fff; transition: border 0.3s; }
+        .otp-group { display: flex; gap: 10px; margin-top: 10px; display: none; }
+        .verify-btn { background-color: #2d3436; color: white; border: none; padding: 0 20px; border-radius: 12px; cursor: pointer; white-space: nowrap; font-weight: 600; }
+        .verified-badge { color: var(--success); font-weight: 700; display: none; align-items: center; gap: 5px; margin-top: 10px; background: rgba(39, 174, 96, 0.1); padding: 10px 15px; border-radius: 12px; width: fit-content; }
+        
+        .order-card { background: var(--white); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #f1f2f6; }
+        .track-bar { display: flex; justify-content: space-between; position: relative; margin-top: 30px; }
+        .track-bar::before { content: ''; position: absolute; top: 10px; left: 0; right: 0; height: 4px; background: #f1f2f6; z-index: 1; border-radius: 2px; }
+        .track-step { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; width: 25%; }
+        .dot { width: 20px; height: 20px; background: #dfe6e9; border-radius: 50%; border: 3px solid var(--white); transition: all 0.4s; box-shadow: 0 3px 8px rgba(0,0,0,0.1); }
+        .track-step p { font-size: 0.7em; margin-top: 8px; color: #b2bec3; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+        .track-step.active .dot { background: var(--gold-color); transform: scale(1.4); border-color: #fff; box-shadow: 0 0 10px rgba(241, 196, 15, 0.5);}
+        .track-step.active p { color: var(--gold-color); }
+        .track-step.passed .dot { background: var(--primary-color); } .track-step.passed p { color: var(--primary-color); }
+        .btn-cancel { background: var(--danger); color: white; border: none; padding: 10px 15px; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 0.9em; width: 100%; margin-top: 15px; box-shadow: 0 4px 10px rgba(231,76,60,0.2); }
+
+        .notification-card { background: white; border-radius: 18px; padding: 18px; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.04); display: flex; align-items: flex-start; border: 1px solid #f1f2f6; }
+        .notif-icon-box { width: 45px; height: 45px; background: rgba(0, 148, 50, 0.1); color: var(--primary-color); border-radius: 14px; display: flex; justify-content: center; align-items: center; margin-right: 15px; font-size: 1.3em; flex-shrink: 0; }
+
+        /* PROFILE SECTION CSS */
+        .profile-section { padding: 20px; text-align: center; margin-bottom: 10px; }
+        .profile-pic-container { position: relative; width: 110px; height: 110px; margin: 0 auto 15px auto; }
+        .profile-pic-container img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid var(--primary-color); box-shadow: 0 10px 25px rgba(0,148,50,0.2); transition: 0.3s; }
+        .settings-options { padding: 0 20px; }
+        .setting-item { width: 100%; padding: 16px 20px; background: white; border: 1px solid #f1f2f6; border-radius: 16px; margin-bottom: 12px; text-align: left; font-size: 1em; font-weight: 600; color: #2d3436; display: flex; align-items: center; gap: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+        .setting-item.text-danger { color: var(--danger); background: rgba(231, 76, 60, 0.05); border-color: rgba(231, 76, 60, 0.1); margin-top: 25px;}
+        .setting-item i { font-size: 1.2em; width: 25px; text-align: center; color: var(--primary-color); }
+
+        /* EXTRA PAGES CSS */
+        .support-card { background: white; border-radius: 20px; padding: 30px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #f1f2f6;}
+        .address-card { background: white; border-radius: 15px; padding: 18px; margin-bottom: 15px; border: 1px solid #f1f2f6; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03);}
+        .quick-address-chip { background:#f1f2f6; padding:10px 15px; border-radius:15px; font-size:0.85em; font-weight:600; white-space:nowrap; cursor:pointer; border:1px solid #dfe6e9; color:#2d3436;}
+    </style>
+</head>
+<body>
+
+    <div class="mobile-container">
+        <div id="storeClosedBanner"><i class="fas fa-store-slash"></i> Store is Currently Closed</div>
+
+        <!-- LOGIN PAGE -->
+        <div id="loginPage" class="page active">
+            <div class="auth-content">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <div class="logo-circle"><i class="fas fa-leaf"></i></div><h1>Shalimar</h1><p>Sign in for premium delights</p>
+                    </div>
+                    <div class="auth-body">
+                        <p id="auth-error"></p>
+                        <div class="input-group"><label class="input-label">EMAIL ADDRESS</label><input type="email" id="loginEmail" class="auth-input"><i class="fas fa-envelope"></i></div>
+                        <div class="input-group"><label class="input-label">PASSWORD</label><input type="password" id="loginPassword" class="auth-input"><i class="fas fa-lock"></i></div>
+                        <button class="btn-main" id="loginBtn">Secure Login</button>
+                        <button class="btn-main btn-google" id="googleBtn"><img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20"> Sign in with Google</button>
+                        <div class="auth-switch">New to Shalimar? <a href="#" id="gotoRegister">Create Account</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REGISTER PAGE -->
+        <div id="registerPage" class="page">
+             <div class="auth-content">
+                <div class="auth-card">
+                    <div class="auth-header"><div class="logo-circle"><i class="fas fa-crown"></i></div><h1>Join Royalty</h1></div>
+                    <div class="auth-body">
+                        <div class="input-group"><label class="input-label">FULL NAME</label><input type="text" id="regName" class="auth-input"><i class="fas fa-user"></i></div>
+                        <div class="input-group"><label class="input-label">EMAIL ADDRESS</label><input type="email" id="registerEmail" class="auth-input"><i class="fas fa-envelope"></i></div>
+                        <div class="input-group"><label class="input-label">PASSWORD</label><input type="password" id="registerPassword" class="auth-input"><i class="fas fa-lock"></i></div>
+                        <button class="btn-main" id="registerBtn">Sign Up</button>
+                        <div class="auth-switch">Already a member? <a href="#" id="gotoLogin">Login</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOME APP -->
+        <div id="appContainer" class="page">
+            <header class="app-header">
+                <div class="header-top-zomato">
+                    <i class="fas fa-map-marker-alt" style="color:var(--gold-color); font-size:1.8em;"></i>
+                    <div class="location-text" id="locationSelectorBtn">
+                        <span class="location-title">Delivering to <i class="fas fa-chevron-down" style="font-size:0.7em;"></i></span>
+                        <span class="location-subtitle" id="current-location-text">Select your location</span>
+                    </div>
+                    <div class="header-profile" data-page="settingsPage" style="margin-left:auto; cursor:pointer;">
+                         <img src="https://ui-avatars.com/api/?name=Guest&background=009432&color=fff" id="headerProfilePic" style="width:40px; height:40px; border-radius:50%; border:2px solid white; object-fit:cover; box-shadow:0 3px 8px rgba(0,0,0,0.2);">
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <i class="fas fa-search search-icon"></i><input type="text" id="searchInput" placeholder="Search for Paan, Sweets, Drinks...">
+                    <i class="fas fa-microphone mic-icon" onclick="startVoiceSearch()"></i>
+                </div>
+            </header>
+
+            <main>
+                <section class="category-section" id="dynamicCategories"></section>
+                <h2 class="section-title" style="margin-top:0px;">Royal Picks <i class="fas fa-crown" style="color:var(--gold-color); font-size:0.8em;"></i></h2>
+                <div class="horizontal-scroll" id="restaurantsContainer"></div>
+
+                <!-- DYNAMIC PROMO BANNER (Controlled by Admin) -->
+                <div class="promo-banner" id="promoBanner" style="display:none;">
+                    <div class="promo-content">
+                        <h3 id="promoTitle">--</h3>
+                        <p id="promoDesc" style="margin: 4px 0 8px 0; font-size: 0.85em;">--</p>
+                        <button class="promo-btn" id="claimBtn" onclick="claimDiscount()">Claim Now</button>
+                    </div>
+                    <img id="promoImage" src="https://cdn-icons-png.flaticon.com/512/5029/5029144.png">
+                </div>
+
+                <h2 class="section-title" id="dishesSectionTitle">Recommended for You</h2>
+                <div class="horizontal-scroll" id="dishesContainer"></div>
+            </main>
+
+            <div id="cart-fab-container"><div class="fab-btn" data-page="cartPage"><i class="fas fa-shopping-basket"></i><div id="cart-count">0</div></div></div>
+
+            <nav>
+                <div class="nav-item active" data-page="appContainer"><i class="fas fa-compass"></i><p>Explore</p></div>
+                <div class="nav-item" data-page="ordersPage"><i class="fas fa-receipt"></i><p>Orders</p></div>
+                <div class="nav-item" data-page="notificationsPage"><i class="fas fa-bell"></i><p>Alerts</p></div>
+                <div class="nav-item" data-page="settingsPage"><i class="fas fa-user"></i><p>Profile</p></div>
+            </nav>
+        </div>
+
+        <!-- SETTINGS / PROFILE PAGE -->
+        <div id="settingsPage" class="page">
+            <header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="appContainer"></i><h2>My Profile</h2></header>
+            <div style="flex:1; padding-bottom:100px; overflow-y:auto;">
+                
+                <div class="profile-section">
+                    <div class="profile-pic-container"><img src="https://ui-avatars.com/api/?name=Guest" id="profileImage" alt="Profile"></div>
+                    
+                    <!-- DISPLAY MODE -->
+                    <div id="profileDisplay">
+                        <h3 id="settingsUserName" style="margin:0; font-size:1.4em; color:#2d3436; font-weight:800;">Loading...</h3>
+                        <p id="settingsUserEmail" style="margin:5px 0 0 0; color:#b2bec3; font-size:0.9em; font-weight:500;">Please wait</p>
+                        <p id="settingsUserPhone" style="margin:8px 0 15px 0; color:#636e72; font-size:0.95em; font-weight:600;"></p>
+                        
+                        <button class="btn-main" onclick="toggleEditProfile()" style="padding: 8px 20px; font-size: 0.85em; width: auto; border-radius: 20px;"><i class="fas fa-edit"></i> Edit Profile</button>
+                    </div>
+
+                    <!-- EDIT MODE -->
+                    <div id="profileEdit" style="display:none; text-align:left; margin-top:15px; padding: 0 20px;">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="editNameInput" class="form-control" placeholder="Enter your full name">
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Number</label>
+                            <input type="tel" id="editPhoneInput" class="form-control" placeholder="Enter contact number">
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:15px;">
+                            <button class="btn-main" onclick="saveProfile()" style="flex:1; margin-bottom:0;"><i class="fas fa-save"></i> Save</button>
+                            <button class="btn-cancel" onclick="toggleEditProfile()" style="flex:1; margin-top:0;"><i class="fas fa-times"></i> Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-options">
+                    <button class="setting-item" data-target="ordersPage"><i class="fas fa-shopping-bag"></i> My Orders</button>
+                    <button class="setting-item" data-target="favoritesPage" id="favNavBtn"><i class="fas fa-heart"></i> Favorites</button>
+                    <button class="setting-item" data-target="addressesPage"><i class="fas fa-map-marked-alt"></i> Saved Addresses</button>
+                    <button class="setting-item" data-target="supportPage"><i class="fas fa-headset"></i> Support & Help</button>
+                    <button class="setting-item text-danger" id="logoutBtnSettings"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAVORITES PAGE -->
+        <div id="favoritesPage" class="page">
+            <header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="settingsPage"></i><h2>My Favorites</h2></header>
+            <div style="flex:1; padding:20px; overflow-y:auto;">
+                <div class="dishes-grid" id="favoritesContainer"></div>
+            </div>
+        </div>
+
+        <!-- SAVED ADDRESSES PAGE -->
+        <div id="addressesPage" class="page">
+            <header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="settingsPage"></i><h2>Saved Addresses</h2></header>
+            <div style="flex:1; padding:20px; overflow-y:auto;">
+                <div class="form-group">
+                    <label>Add New Address</label>
+                    <input type="text" id="newAddressInput" class="form-control" placeholder="House No, Landmark, Area">
+                    <button class="btn-main" onclick="saveNewAddress()" style="margin-top:15px;">Save Address</button>
+                </div>
+                <h3 style="margin-top:25px; font-size:1.1em; color:#2d3436; font-weight:700;">My Addresses</h3>
+                <div id="savedAddressesList"></div>
+            </div>
+        </div>
+
+        <!-- HELP & SUPPORT PAGE -->
+        <div id="supportPage" class="page">
+            <header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="settingsPage"></i><h2>Help & Support</h2></header>
+            <div style="flex:1; padding:25px; overflow-y:auto;">
+                <div class="support-card">
+                    <i class="fas fa-headset" style="font-size:3.5em; color:var(--primary-color); margin-bottom:15px;"></i>
+                    <h3 style="color:#2d3436; font-size:1.4em;">We're here to help!</h3>
+                    <p style="color:#636e72; font-size:0.95em; margin-bottom:25px;">Contact our support team for any queries related to your order.</p>
+                    <a id="supportPhoneBtn" href="tel:" class="btn-main" style="display:block; text-decoration:none; margin-bottom:15px; background:var(--gold-gradient);"><i class="fas fa-phone-alt"></i> Call Us</a>
+                    <a id="supportEmailBtn" href="mailto:" class="btn-main" style="display:block; text-decoration:none; background:#2d3436;"><i class="fas fa-envelope"></i> Email Us</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- CART -->
+        <div id="cartPage" class="page">
+            <header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="appContainer"></i><h2>My Basket</h2></header>
+            <div style="flex:1; padding:20px; overflow-y:auto;" id="cart-content-area">
+                <div id="cartItemsContainer"></div>
+                <div id="cart-summary" style="margin-top:30px; border-top:2px dashed var(--border-color); padding-top:20px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-weight:600; color:#636e72;"><span>Subtotal</span><span id="subtotal-price">₹0.00</span></div>
+                    <div id="discount-row" style="display:none; justify-content:space-between; margin-bottom:12px; font-weight:700; color:var(--success);"><span><i class="fas fa-tag"></i> Promo Applied</span><span id="discount-price">-₹0.00</span></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-weight:600; color:#636e72;"><span>GST (<span id="gst-rate-display">0</span>%)</span><span id="gst-price">₹0.00</span></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-weight:600; color:#636e72;"><span id="delivery-label">Delivery Fee</span><span id="delivery-price">₹0.00</span></div>
+                    <div style="display:flex; justify-content:space-between; font-weight:800; font-size:1.5em; color:var(--primary-color); margin-top:15px;"><span>Total</span><span id="total-price">₹0.00</span></div>
+                    <button class="btn-main" id="goToCheckoutBtn" style="margin-top:30px; font-size:1.2em;">Proceed to Checkout</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHECKOUT -->
+        <div id="checkoutPage" class="page">
+            <header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="cartPage"></i><h2>Checkout</h2></header>
+            <div style="flex:1; padding:25px; overflow-y:auto;">
+                <div class="form-group">
+                    <label>Order Type</label>
+                    <div class="order-type-toggle">
+                        <div class="toggle-btn active" id="btnDelivery" onclick="setOrderType('Delivery')"><i class="fas fa-motorcycle"></i> Delivery</div>
+                        <div class="toggle-btn" id="btnPickup" onclick="setOrderType('Pickup')"><i class="fas fa-walking"></i> Self Pickup</div>
+                    </div>
+                </div>
+                <div id="deliverySection">
+                    <div class="form-group">
+                        <label>Delivery Location</label>
+                        <div id="checkoutSavedAddresses" style="display:flex; gap:10px; overflow-x:auto; margin-bottom:15px; padding-bottom:5px;"></div>
+                        
+                        <button class="location-btn" id="geoBtn"><i class="fas fa-location-arrow"></i> Use Current Location</button>
+                        <div id="map-container"><div id="map" style="height:100%; width:100%;"></div></div>
+                        <input type="text" id="addressText" class="form-control" placeholder="House/Flat No., Landmark">
+                        <input type="hidden" id="lat"><input type="hidden" id="lng">
+                    </div>
+                </div>
+                <div class="form-group"><label>Contact Number</label><input type="tel" id="contactPhone" class="form-control" placeholder="Mobile Number"></div>
+                
+                <div class="or-divider">VERIFICATION</div>
+                
+                <div class="form-group">
+                    <label>Email Verification (Optional)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="email" id="verifyEmail" class="form-control" readonly style="margin-bottom:0; background:#f5f6fa;">
+                        <button class="verify-btn" id="sendOtpBtn">Send OTP</button>
+                    </div>
+                    <div class="otp-group" id="otpSection">
+                        <input type="text" id="otpCode" class="form-control" placeholder="6-digit code" style="margin-bottom:0;">
+                        <button class="verify-btn" id="verifyOtpBtn" style="background:var(--success);">Verify</button>
+                    </div>
+                    <div id="verifiedBadge" class="verified-badge"><i class="fas fa-check-circle"></i> Verified Successfully</div>
+                    <p id="otpMsg" style="font-size:0.85em; color:var(--light-text); margin-top:8px; font-weight:500;"></p>
+                </div>
+
+                <div class="form-group">
+                    <label>Payment Method</label>
+                    <div style="padding:18px; background:rgba(39, 174, 96, 0.05); border:2px solid rgba(39, 174, 96, 0.2); border-radius:14px; display:flex; align-items:center;">
+                        <i class="fas fa-money-bill-wave" style="color:var(--success); margin-right:15px; font-size:1.5em;"></i><span style="font-weight:700;">Cash on Delivery</span>
+                    </div>
+                </div>
+                <button class="btn-main" id="placeOrderBtn" disabled style="margin-top:20px;">Enter Phone OR Verify Email</button>
+            </div>
+        </div>
+
+        <!-- ORDERS, NOTIFICATIONS & THANK YOU -->
+        <div id="ordersPage" class="page"><header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="appContainer"></i><h2>Order History</h2></header><div style="flex:1; padding:20px; overflow-y:auto;" id="ordersListContainer"></div></div>
+        <div id="notificationsPage" class="page"><header class="page-header"><i class="fas fa-arrow-left back-btn" data-target="appContainer"></i><h2>Alerts</h2></header><div style="flex:1; padding:20px; overflow-y:auto;" id="notificationListContainer"><p style="text-align:center;">Loading...</p></div></div>
+        <div id="thankYouPage" class="page">
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; padding:40px; text-align:center; background:var(--secondary-color);">
+                <div style="width:110px; height:110px; background:rgba(0, 148, 50, 0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; margin-bottom:25px; box-shadow: 0 10px 30px rgba(0,148,50,0.2);"><i class="fas fa-check" style="font-size:3.5em; color:var(--primary-color);"></i></div>
+                <h2 style="color:#2d3436; font-size:2em; font-weight:800; margin-bottom:10px;">Order Placed!</h2>
+                <button class="btn-main" id="trackOrderBtn" style="margin-top:40px; font-size:1.1em; width:80%;">Track Order</button>
+                <a href="#" id="backToHomeBtn" style="margin-top:25px; display:block; color:var(--light-text); text-decoration:none; font-weight:600;">Back to Home</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase & Leaflet Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- FIREBASE CONFIGURATION -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDWbBAnhcxaKVf4ACIQ1lGweR-fugOIFRY",
+            authDomain: "shalimar-3188d.firebaseapp.com",
+            databaseURL: "https://shalimar-3188d-default-rtdb.firebaseio.com",
+            projectId: "shalimar-3188d",
+            storageBucket: "shalimar-3188d.firebasestorage.app",
+            messagingSenderId: "353343078082",
+            appId: "1:353343078082:web:0aa0842ade9d2e758a455b"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth(); 
+        const db = firebase.database();
+    </script>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+        let cart = []; let userFavorites =[]; let supportInfo = { phone: '', email: '' };
+        let globalDeliveryCharge = 50; let globalGstRate = 0; let isStoreOpen = true; let currentOrderType = 'Delivery'; 
+        let currentUser = null; let map, marker; let allDishesData =[]; let ordersListener = null;
+        let isVerified = false; let generatedOTP = null; let isFirstOrder = false; let discountApplied = false;
+        let activeCategoryFilter = 'All';
+        
+        let dynamicDiscountPercent = 0; let isBannerActive = false;
+
+        const showPage = (id) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const activeNav = document.querySelector(`.nav-item[data-page="${id}"]`); if(activeNav) activeNav.classList.add('active');
+            if(id === 'checkoutPage') { setTimeout(() => { if(map) map.invalidateSize(); }, 300); if(currentUser) document.getElementById('verifyEmail').value = currentUser.email; checkOrderValidity(); }
+            if(id === 'ordersPage') loadOrders();
+            if(id === 'notificationsPage') loadNotifications();
+            if(id === 'favoritesPage') renderFavoritesList();
+        };
+
+        document.querySelectorAll('[data-target],[data-page]').forEach(b => b.addEventListener('click', (e) => { const target = e.currentTarget.dataset.target || e.currentTarget.dataset.page; if(target) showPage(target); }));
+        document.getElementById('gotoRegister').onclick = () => showPage('registerPage');
+        document.getElementById('gotoLogin').onclick = () => showPage('loginPage');
+        document.getElementById('logoutBtnSettings').onclick = () => { auth.signOut(); cart=[]; discountApplied = false; updateCartUI(); };
+        document.getElementById('goToCheckoutBtn').onclick = () => { if(!isStoreOpen) { alert("Sorry! Store is currently closed."); return; } showPage('checkoutPage'); };
+        document.getElementById('trackOrderBtn').onclick = () => showPage('ordersPage');
+        document.getElementById('backToHomeBtn').onclick = () => showPage('appContainer');
+
+        auth.onAuthStateChanged(u => {
+            if(u) { 
+                currentUser = u; showPage('appContainer'); fetchCategories(); fetchData(); fetchSettings(); listenForStatusUpdates(); 
+                document.getElementById('settingsUserName').textContent = u.displayName || 'Guest'; 
+                document.getElementById('settingsUserEmail').textContent = u.email;
+                const userPic = u.photoURL || "https://ui-avatars.com/api/?name=" + (u.displayName||'Guest') + "&background=009432&color=fff";
+                document.getElementById('profileImage').src = userPic; document.getElementById('headerProfilePic').src = userPic;
+                
+                db.ref(`users/${u.uid}/profile/phone`).on('value', snap => {
+                    const phone = snap.val();
+                    if(phone) {
+                        document.getElementById('settingsUserPhone').innerHTML = `<i class="fas fa-phone-alt" style="color:var(--primary-color);"></i> ${phone}`;
+                    } else {
+                        document.getElementById('settingsUserPhone').innerHTML = `<i class="fas fa-plus-circle" style="color:#e67e22;"></i> Add Contact Number`;
+                    }
+                });
+
+                db.ref('orders').orderByChild('userId').equalTo(currentUser.uid).once('value', snap => { 
+                    isFirstOrder = !snap.exists(); updateCartUI(); 
+                });
+                
+                db.ref(`users/${currentUser.uid}/favorites`).on('value', snap => {
+                    userFavorites =[]; if(snap.exists()) { snap.forEach(child => userFavorites.push(child.key)); } renderDishes(allDishesData); 
+                });
+
+                db.ref(`users/${currentUser.uid}/addresses`).on('value', snap => {
+                    const list = document.getElementById('savedAddressesList'); const checkoutList = document.getElementById('checkoutSavedAddresses');
+                    list.innerHTML = ''; checkoutList.innerHTML = '';
+                    if(snap.exists()) {
+                        snap.forEach(child => {
+                            const addr = child.val().text;
+                            list.innerHTML += `<div class="address-card"><p style="margin:0; font-weight:600; font-size:0.9em; flex:1;"><i class="fas fa-map-marker-alt" style="color:var(--primary-color); margin-right:8px;"></i> ${addr}</p><div style="width:35px; height:35px; background:rgba(231,76,60,0.1); border-radius:10px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="deleteAddress('${child.key}')"><i class="fas fa-trash" style="color:var(--danger);"></i></div></div>`;
+                            checkoutList.innerHTML += `<div class="quick-address-chip" onclick="selectSavedAddress('${addr.replace(/'/g, "\\'")}')"><i class="fas fa-home" style="color:var(--primary-color); margin-right:5px;"></i> ${addr.substring(0,20)}...</div>`;
+                        });
+                    } else { list.innerHTML = '<p style="color:#777; font-size:0.9em; text-align:center;">No saved addresses yet.</p>'; }
+                });
+
+            } else { currentUser = null; showPage('loginPage'); }
+        });
+
+        window.toggleEditProfile = () => {
+            const displayDiv = document.getElementById('profileDisplay');
+            const editDiv = document.getElementById('profileEdit');
+            
+            if (editDiv.style.display === 'none') {
+                displayDiv.style.display = 'none';
+                editDiv.style.display = 'block';
+                
+                document.getElementById('editNameInput').value = currentUser.displayName || '';
+                let phoneText = document.getElementById('settingsUserPhone').textContent.replace('Add Contact Number', '').trim();
+                document.getElementById('editPhoneInput').value = phoneText;
+            } else {
+                displayDiv.style.display = 'block';
+                editDiv.style.display = 'none';
+            }
+        };
+
+        window.saveProfile = () => {
+            if(!currentUser) return;
+            const newName = document.getElementById('editNameInput').value.trim();
+            const newPhone = document.getElementById('editPhoneInput').value.trim();
+            
+            if(newName === "") {
+                alert("Please enter your name."); return;
+            }
+            
+            currentUser.updateProfile({ displayName: newName }).then(() => {
+                document.getElementById('settingsUserName').textContent = newName;
+                const userPic = "https://ui-avatars.com/api/?name=" + newName + "&background=009432&color=fff";
+                document.getElementById('profileImage').src = userPic;
+                document.getElementById('headerProfilePic').src = userPic;
+                
+                db.ref(`users/${currentUser.uid}/profile/phone`).set(newPhone).then(() => {
+                    alert("Profile updated successfully!");
+                    toggleEditProfile(); 
+                });
+            }).catch(error => alert("Error: " + error.message));
+        };
+
+        window.toggleFav = (id) => {
+            if(!currentUser) { alert("Please login to save favorites."); return; }
+            const ref = db.ref(`users/${currentUser.uid}/favorites/${id}`);
+            if(userFavorites.includes(id)) { ref.remove(); } else { ref.set(true); }
+        };
+
+        window.renderFavoritesList = () => {
+            const c = document.getElementById('favoritesContainer'); c.innerHTML = '';
+            const favDishes = allDishesData.filter(d => userFavorites.includes(d.key));
+            if(favDishes.length === 0) { c.innerHTML = '<p style="text-align:center; color:#777; width:100%; font-weight:600; padding:20px;">No favorites saved yet.</p>'; return; }
+            let html = ''; favDishes.forEach(d => html += createDishCardHtml(d)); c.innerHTML = html;
+        };
+
+        window.saveNewAddress = () => {
+            if(!currentUser) return; const val = document.getElementById('newAddressInput').value.trim();
+            if(!val) { alert("Please enter an address"); return; }
+            db.ref(`users/${currentUser.uid}/addresses`).push({ text: val }).then(() => { document.getElementById('newAddressInput').value = ''; alert("Address Saved Successfully!"); });
+        };
+        window.deleteAddress = (key) => { if(confirm("Delete this address?")) db.ref(`users/${currentUser.uid}/addresses/${key}`).remove(); };
+        window.selectSavedAddress = (addr) => { document.getElementById('addressText').value = addr; };
+
+        function fetchSettings() {
+            db.ref('settings').on('value', snap => {
+                if(snap.exists()) {
+                    let data = snap.val();
+                    globalDeliveryCharge = data.deliveryCharge !== undefined ? parseFloat(data.deliveryCharge) : 50;
+                    globalGstRate = data.gst !== undefined ? parseFloat(data.gst) : 0;
+                    isStoreOpen = (data.storeStatus !== 'closed');
+                    document.getElementById('storeClosedBanner').style.display = isStoreOpen ? 'none' : 'block';
+                    const checkoutBtn = document.getElementById('goToCheckoutBtn');
+                    if(checkoutBtn) { checkoutBtn.disabled = !isStoreOpen; checkoutBtn.textContent = isStoreOpen ? "Proceed to Checkout" : "Store Closed"; checkoutBtn.style.background = isStoreOpen ? "var(--primary-gradient)" : "#bdc3c7"; }
+                    
+                    let phone = data.supportPhone || '+910000000000'; let email = data.supportEmail || 'support@shalimar.com';
+                    document.getElementById('supportPhoneBtn').href = 'tel:' + phone; document.getElementById('supportEmailBtn').href = 'mailto:' + email;
+
+                    if(data.offerBanner) {
+                        isBannerActive = data.offerBanner.enabled === 'yes';
+                        dynamicDiscountPercent = parseFloat(data.offerBanner.discount) || 0;
+                        if(isBannerActive) {
+                            document.getElementById('promoBanner').style.display = 'flex';
+                            document.getElementById('promoTitle').textContent = data.offerBanner.title || 'Special Offer';
+                            document.getElementById('promoDesc').textContent = data.offerBanner.desc || 'Grab it now!';
+                            document.getElementById('promoImage').src = data.offerBanner.imageUrl || 'https://cdn-icons-png.flaticon.com/512/5029/5029144.png';
+                        } else { document.getElementById('promoBanner').style.display = 'none'; }
+                    } else { document.getElementById('promoBanner').style.display = 'none'; }
+                    
+                    updateCartUI(); 
+                }
+            });
+        }
+
+        window.claimDiscount = () => {
+            discountApplied = true; 
+            const btn = document.getElementById('claimBtn'); 
+            btn.textContent = "Applied!"; btn.style.background = "var(--success)";
+            alert(`Congratulations! ${dynamicDiscountPercent}% Discount will be applied to your cart.`); 
+            updateCartUI();
+        };
+
+        function fetchCategories() {
+            db.ref('categories').on('value', snap => {
+                const container = document.getElementById('dynamicCategories'); container.innerHTML = `<div class="category-item active-cat" id="cat-All" onclick="filterByCategory('All')"><div class="category-icon"><i class="fas fa-th-large"></i></div><p>All Items</p></div>`;
+                if(snap.exists()) {
+                    snap.forEach(child => {
+                        const cat = child.val(); const safeName = cat.name.replace(/'/g, "\\'"); const idName = cat.name.replace(/\s+/g, '');
+                        let iconHtml = cat.icon.includes('http') ? `<img src="${cat.icon}">` : `<i class="${cat.icon}"></i>`;
+                        container.innerHTML += `<div class="category-item" id="cat-${idName}" onclick="filterByCategory('${safeName}')"><div class="category-icon">${iconHtml}</div><p>${cat.name}</p></div>`;
+                    });
+                }
+                highlightCategory(activeCategoryFilter);
+            });
+        }
+
+        window.filterByCategory = (catName) => {
+            activeCategoryFilter = catName; highlightCategory(catName);
+            const title = document.getElementById('dishesSectionTitle');
+            if(catName === 'All') { title.innerHTML = 'Recommended for You'; document.getElementById('dishesContainer').className = 'horizontal-scroll'; renderDishes(allDishesData, 'dishesContainer'); } 
+            else { title.innerHTML = `${catName} Items`; document.getElementById('dishesContainer').className = 'dishes-grid'; renderDishes(allDishesData.filter(d => d.category === catName), 'dishesContainer'); }
+        };
+
+        function highlightCategory(catName) {
+            document.querySelectorAll('.category-item').forEach(el => el.classList.remove('active-cat'));
+            const activeEl = document.getElementById('cat-' + catName.replace(/\s+/g, '')); if(activeEl) activeEl.classList.add('active-cat');
+        }
+
+        document.getElementById('loginBtn').onclick = () => auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPassword').value).catch(e => { const err = document.getElementById('auth-error'); err.textContent = e.message; err.style.display = 'block';});
+        document.getElementById('registerBtn').onclick = () => { auth.createUserWithEmailAndPassword(document.getElementById('registerEmail').value, document.getElementById('registerPassword').value).then((u) => u.user.updateProfile({ displayName: document.getElementById('regName').value })).catch(e => alert(e.message)); };
+
+        function fetchData() { db.ref('dishes').once('value', s => { allDishesData =[]; s.forEach(d => { allDishesData.push({ key: d.key, ...d.val() }); }); renderDishes(allDishesData, 'dishesContainer'); }); }
+
+        function createDishCardHtml(d) {
+            const ratingValue = d.rating || "4.2";
+            let offerPrice = parseFloat(d.offerPrice) || 0; let originalPrice = parseFloat(d.price); let finalPrice = (offerPrice > 0 && offerPrice < originalPrice) ? offerPrice : originalPrice;
+            let badgeHtml = '';
+            if (offerPrice > 0 && offerPrice < originalPrice) { badgeHtml = `<div class="offer-tag"><i class="fas fa-tag"></i> OFFER</div>`; } else if (parseFloat(ratingValue) >= 4.5) { badgeHtml = `<div class="bestseller-tag"><i class="fas fa-crown" style="font-size:0.8em; color:var(--gold-color);"></i> Bestseller</div>`; }
+            let priceHtml = (offerPrice > 0 && offerPrice < originalPrice) ? `<span style="text-decoration:line-through; font-size:0.75em; color:#999; margin-right:5px;">₹${originalPrice}</span>₹${finalPrice}` : `₹${originalPrice}`;
+            const safeName = d.name.replace(/'/g, "\\'");
+            let isFav = userFavorites.includes(d.key); let favClass = isFav ? 'fas fa-heart active' : 'far fa-heart';
+            return `
+            <div class="card">
+                ${badgeHtml}
+                <div class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav('${d.key}')"><i class="${favClass}"></i></div>
+                <img src="${d.imageUrl}">
+                <button class="add-btn" onclick="addToCart('${d.key}','${safeName}',${finalPrice},'${d.imageUrl}')"><i class="fas fa-plus"></i></button>
+                <div class="card-content"><h3>${d.name}</h3><div class="zomato-rating"><div class="zomato-rating-box"><i class="fas fa-star" style="font-size:0.8em;"></i> ${ratingValue}</div></div><p>${priceHtml}</p></div>
+            </div>`;
+        }
+
+        function renderDishes(dishesList, containerId = 'dishesContainer') {
+            const c = document.getElementById(containerId); c.innerHTML = '';
+            if(dishesList.length === 0) { c.innerHTML = '<p style="padding:10px; width:100%; text-align:center; color:#666; font-weight:600;">No items found.</p>'; return; }
+            let html = ''; dishesList.forEach(d => html += createDishCardHtml(d)); c.innerHTML = html;
+        }
+
+        window.setOrderType = (type) => {
+            currentOrderType = type;
+            if(type === 'Delivery') { document.getElementById('btnDelivery').classList.add('active'); document.getElementById('btnPickup').classList.remove('active'); document.getElementById('deliverySection').style.display = 'block'; document.getElementById('delivery-label').textContent = 'Delivery Fee'; } 
+            else { document.getElementById('btnPickup').classList.add('active'); document.getElementById('btnDelivery').classList.remove('active'); document.getElementById('deliverySection').style.display = 'none'; document.getElementById('delivery-label').textContent = 'Pickup Charge'; }
+            updateCartUI(); checkOrderValidity();
+        };
+
+        window.addToCart = (id,name,price,img) => { if(!isStoreOpen) { alert("Store is closed."); return; } const ex = cart.find(i=>i.id===id); ex ? ex.quantity++ : cart.push({id,name,price,img,quantity:1}); updateCartUI(); };
+
+        function updateCartUI() {
+            document.getElementById('cart-count').textContent = cart.reduce((a,b)=>a+b.quantity,0); const c = document.getElementById('cartItemsContainer');
+            if(cart.length===0) { c.innerHTML='<p style="text-align:center; font-weight:600; color:#b2bec3;">Your basket is empty</p>'; document.getElementById('cart-summary').style.display='none'; return; }
+            document.getElementById('cart-summary').style.display='block'; c.innerHTML=''; let subtotal = 0;
+            cart.forEach(i => { subtotal += i.price * i.quantity; c.innerHTML += `<div class="cart-item"><img src="${i.img}"><div style="flex:1;"><h4>${i.name}</h4><p>₹${i.price}</p></div><div class="qty-controls"><button onclick="modQty('${i.id}',-1)">-</button><span>${i.quantity}</span><button onclick="modQty('${i.id}',1)">+</button></div></div>`; });
+            
+            document.getElementById('subtotal-price').textContent = `₹${subtotal.toFixed(2)}`;
+            
+            let discountAmount = (discountApplied && isBannerActive) ? (subtotal * dynamicDiscountPercent / 100) : 0; 
+            document.getElementById('discount-row').style.display = discountAmount > 0 ? 'flex' : 'none'; 
+            document.getElementById('discount-price').textContent = `-₹${discountAmount.toFixed(2)}`;
+            
+            let isFreeGstAndDelivery = isFirstOrder; 
+            let rawGstAmount = ((subtotal - discountAmount) * globalGstRate) / 100;
+            let gstAmount = isFreeGstAndDelivery ? 0 : rawGstAmount;
+            
+            let rawDeliveryCharge = (currentOrderType === 'Delivery') ? globalDeliveryCharge : 0;
+            let appliedDeliveryCharge = isFreeGstAndDelivery ? 0 : rawDeliveryCharge;
+            
+            document.getElementById('gst-rate-display').textContent = globalGstRate;
+            
+            if(isFreeGstAndDelivery && rawGstAmount > 0) {
+                document.getElementById('gst-price').innerHTML = `<span style="text-decoration:line-through; color:#b2bec3; font-size:0.85em; margin-right:5px;">₹${rawGstAmount.toFixed(2)}</span> <span style="color:var(--success);">₹0.00</span>`;
+            } else { document.getElementById('gst-price').textContent = `₹${gstAmount.toFixed(2)}`; }
+
+            if(isFreeGstAndDelivery && rawDeliveryCharge > 0) {
+                document.getElementById('delivery-price').innerHTML = `<span style="text-decoration:line-through; color:#b2bec3; font-size:0.85em; margin-right:5px;">₹${rawDeliveryCharge.toFixed(2)}</span> <span style="color:var(--success);">₹0.00</span>`;
+            } else { document.getElementById('delivery-price').textContent = `₹${appliedDeliveryCharge.toFixed(2)}`; }
+
+            let finalTotal = subtotal - discountAmount + gstAmount + appliedDeliveryCharge;
+            document.getElementById('total-price').textContent = `₹${finalTotal.toFixed(2)}`;
+        }
+
+        window.modQty = (id,n) => { if(!isStoreOpen && n > 0) return; const i = cart.find(x=>x.id===id); if(i) { i.quantity+=n; if(i.quantity<=0) cart=cart.filter(x=>x.id!==id); updateCartUI(); } };
+
+        document.getElementById('sendOtpBtn').onclick = () => {
+            const email = document.getElementById('verifyEmail').value; const msg = document.getElementById('otpMsg'); 
+            if(!email) { alert("No email found."); return; }
+            generatedOTP = Math.floor(100000 + Math.random() * 900000); 
+            msg.style.color = 'var(--primary-color)'; msg.textContent = "Sending OTP...";
+            
+            // YAHAN URL UPDATE KIYA GAYA HAI -> /send-otp
+            fetch('/send-otp', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ email: email, otp: generatedOTP }) 
+            })
+            .then(r => r.json()).then(data => {
+                if(data.status === "success") { 
+                    msg.style.color = 'var(--success)'; msg.textContent = "OTP Sent to " + email; 
+                    document.getElementById('otpSection').style.display = 'flex'; document.getElementById('sendOtpBtn').style.display = 'none'; 
+                } else { 
+                    msg.style.color = '#e67e22'; alert("Email service is busy. Here is a test code: " + generatedOTP); 
+                    document.getElementById('otpSection').style.display = 'flex'; document.getElementById('sendOtpBtn').style.display = 'none'; 
+                }
+            }).catch(() => { 
+                alert("Network error. Here is a test code: " + generatedOTP); 
+                document.getElementById('otpSection').style.display = 'flex'; document.getElementById('sendOtpBtn').style.display = 'none'; 
+            });
+        };
+
+        document.getElementById('verifyOtpBtn').onclick = () => {
+            const code = document.getElementById('otpCode').value; const msg = document.getElementById('otpMsg');
+            if(code == generatedOTP) { 
+                isVerified = true; document.getElementById('otpSection').style.display = 'none'; 
+                document.getElementById('verifiedBadge').style.display = 'flex'; msg.textContent = ""; checkOrderValidity(); 
+            } else { msg.style.color = 'var(--danger)'; msg.textContent = "Incorrect OTP code."; }
+        };
+
+        const phoneInput = document.getElementById('contactPhone'); const orderBtn = document.getElementById('placeOrderBtn'); phoneInput.addEventListener('input', checkOrderValidity);
+        function checkOrderValidity() { if (phoneInput.value.trim().length > 5 || isVerified) { orderBtn.disabled = false; orderBtn.style.opacity = '1'; orderBtn.textContent = "Confirm Order"; } else { orderBtn.disabled = true; orderBtn.style.opacity = '0.6'; orderBtn.textContent = "Enter Phone OR Verify Email"; } }
+
+        document.getElementById('geoBtn').addEventListener('click', () => {
+            const btn = document.getElementById('geoBtn'); document.getElementById('map-container').style.display = 'block';
+            if(!map) { map = L.map('map').setView([51.505, -0.09], 13); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map); map.on('click', (e) => handleLocationUpdate(e.latlng.lat, e.latlng.lng)); }
+            map.invalidateSize();
+            if (navigator.geolocation) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating...'; navigator.geolocation.getCurrentPosition( (p) => { handleLocationUpdate(p.coords.latitude, p.coords.longitude); map.setView([p.coords.latitude, p.coords.longitude], 16); btn.innerHTML = '<i class="fas fa-check"></i> Location Set'; }); }
+        });
+        
+        function handleLocationUpdate(lat, lng) {
+            if(marker) map.removeLayer(marker); marker = L.marker([lat, lng]).addTo(map); document.getElementById('lat').value = lat; document.getElementById('lng').value = lng;
+            const addr = document.getElementById('addressText'); addr.value = "Fetching address...";
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`).then(r => r.json()).then(d => { addr.value = `${d.locality || d.city || ''}, ${d.principalSubdivision || ''}, ${d.countryName || ''}`; }).catch(() => addr.value = "");
+        }
+
+        function pushNotification(title, body) { if(!currentUser) return; db.ref(`notifications/${currentUser.uid}`).push({ title, body, timestamp: Date.now(), read: false }); }
+
+        function listenForStatusUpdates() {
+            if(!currentUser) return;
+            db.ref('orders').orderByChild('userId').equalTo(currentUser.uid).on('child_changed', (snapshot) => {
+                const order = snapshot.val(); if (order.status !== 'Placed') { pushNotification(`Order #${snapshot.key.substring(1, 6)} Update`, `Your royal order is now: ${order.status}`); }
+            });
+        }
+
+        function loadNotifications() {
+            if(!currentUser) return;
+            const container = document.getElementById('notificationListContainer'); container.innerHTML = '<p style="text-align:center; padding:20px; font-weight:600;">Loading alerts...</p>';
+            db.ref(`notifications/${currentUser.uid}`).orderByChild('timestamp').limitToLast(20).once('value', snap => {
+                container.innerHTML = '';
+                if(!snap.exists()) { container.innerHTML = '<div style="text-align:center; margin-top:50px; color:#b2bec3;"><i class="fas fa-bell-slash" style="font-size:3em; margin-bottom:15px;"></i><p>No new alerts</p></div>'; return; }
+                const alerts =[]; snap.forEach(c => alerts.push(c.val())); alerts.reverse(); 
+                alerts.forEach(n => {
+                    const date = new Date(n.timestamp).toLocaleString(); let icon = 'fa-info-circle';
+                    if(n.title.includes('Placed')) icon = 'fa-check-circle'; if(n.title.includes('Update')) icon = 'fa-shipping-fast';
+                    container.innerHTML += `<div class="notification-card"><div class="notif-icon-box"><i class="fas ${icon}"></i></div><div class="notif-content" style="flex:1;"><h4 style="margin:0 0 5px 0; color:#2d3436; font-size:1em;">${n.title}</h4><p style="margin:0 0 8px 0; color:#636e72; font-size:0.9em;">${n.body}</p><span style="font-size:0.75em; color:#b2bec3; font-weight:600;">${date}</span></div></div>`;
+                });
+            });
+        }
+
+        orderBtn.onclick = () => {
+            if(!isStoreOpen) { alert("Store is closed."); return; }
+            const phone = phoneInput.value.trim(); if(!isVerified && phone.length < 5) return;
+            const address = document.getElementById('addressText').value; const lat = document.getElementById('lat').value; const lng = document.getElementById('lng').value;
+            if(currentOrderType === 'Delivery' && !address) { alert("Please provide a delivery address."); return; }
+
+            let subtotal = cart.reduce((a,b) => a + (b.price * b.quantity), 0); 
+            let discountAmt = (discountApplied && isBannerActive) ? (subtotal * dynamicDiscountPercent / 100) : 0; 
+            let gstAmt = isFirstOrder ? 0 : ((subtotal - discountAmt) * globalGstRate) / 100; 
+            let appliedDeliveryCharge = isFirstOrder ? 0 : ((currentOrderType === 'Delivery') ? globalDeliveryCharge : 0); 
+            let finalTotal = (subtotal - discountAmt + gstAmt + appliedDeliveryCharge).toFixed(2);
+
+            const order = { 
+                userId: currentUser.uid, email: currentUser.email, phone: phone || "Verified via Email", 
+                orderType: currentOrderType, address: currentOrderType === 'Delivery' ? address : 'Self Pickup', 
+                location: currentOrderType === 'Delivery' ? {lat,lng} : null, items: cart, 
+                total: finalTotal, status: 'Placed', timestamp: new Date().toISOString() 
+            };
+            
+            db.ref('orders').push(order).then((snap) => { 
+                pushNotification("Order Placed", `Order #${snap.key.substring(1,6)} has been placed successfully.`);
+                isFirstOrder = false; discountApplied = false; document.getElementById('promoBanner').style.display = 'none'; 
+                cart=[]; updateCartUI(); showPage('thankYouPage'); 
+            });
+        };
+
+        window.cancelOrder = (orderId) => {
+            if(confirm("Are you sure you want to cancel this order?")) {
+                db.ref('orders/' + orderId).update({ status: 'Cancelled' }).then(() => {
+                    alert("Your order has been cancelled successfully."); loadOrders();
+                });
+            }
+        };
+
+        function loadOrders() {
+            const container = document.getElementById('ordersListContainer');
+            if (ordersListener) { ordersListener.off(); ordersListener = null; }
+            if (!currentUser) return;
+            container.innerHTML = '<p style="text-align:center; padding:20px; font-weight:600;">Loading...</p>';
+            ordersListener = db.ref('orders');
+            ordersListener.on('value', s => {
+                container.innerHTML = '';
+                if (!s.exists()) { container.innerHTML = '<p style="text-align:center; color:#777; padding:20px; font-weight:600;">No active orders.</p>'; return; }
+                const arr =[]; s.forEach(childSnap => { const val = childSnap.val(); if (val.userId === currentUser.uid) { arr.push({ k: childSnap.key, ...val }); } });
+                if (arr.length === 0) { container.innerHTML = '<p style="text-align:center; color:#777; padding:20px; font-weight:600;">No active orders.</p>'; return; }
+                arr.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                let html = '';
+                arr.forEach(o => {
+                    let st = o.status; let s1 = '', s2 = '', s3 = '', s4 = '';
+                    let trackBarHtml = ''; let cancelBtnHtml = ''; let statusColor = 'var(--primary-color)'; let statusBg = 'rgba(0,148,50,0.1)';
+
+                    if(st === 'Cancelled') {
+                        statusColor = 'var(--danger)'; statusBg = 'rgba(231,76,60,0.1)';
+                        trackBarHtml = `<div style="text-align:center; padding: 12px; color: var(--danger); font-weight: bold; background: rgba(231,76,60,0.1); border-radius: 10px; margin-top: 15px;">Order Cancelled</div>`;
+                    } else {
+                        if (st === 'Placed') { s1 = 'active'; cancelBtnHtml = `<button class="btn-cancel" onclick="cancelOrder('${o.k}')"><i class="fas fa-times"></i> Cancel Order</button>`; } 
+                        else if (st === 'Preparing') { s1 = 'passed'; s2 = 'active'; } 
+                        else if (st === 'Out for Delivery') { s1 = 'passed'; s2 = 'passed'; s3 = 'active'; } 
+                        else if (st === 'Delivered') { s1 = 'passed'; s2 = 'passed'; s3 = 'passed'; s4 = 'active'; }
+
+                        trackBarHtml = `
+                        <div class="track-bar">
+                            <div class="track-step ${s1}"><div class="dot"></div><p>Placed</p></div>
+                            <div class="track-step ${s2}"><div class="dot"></div><p>Prep</p></div>
+                            <div class="track-step ${s3}"><div class="dot"></div><p>${o.orderType==='Pickup' ? 'Ready' : 'On Way'}</p></div>
+                            <div class="track-step ${s4}"><div class="dot"></div><p>Done</p></div>
+                        </div>`;
+                    }
+
+                    let typeBadgeHtml = o.orderType === 'Pickup' ? '<span style="color:#e65100; background:#fff3e0; padding:2px 8px; border-radius:10px; font-size:0.8em; margin-left:10px;">Self Pickup</span>' : '';
+
+                    html += `
+                        <div class="order-card" id="order-${o.k}">
+                            <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700; margin-bottom:10px;">
+                                <span style="font-size:1.1em; color:#2d3436;">#${o.k.substring(1, 6)} ${typeBadgeHtml}</span>
+                                <span style="color:${statusColor}; background:${statusBg}; padding:4px 10px; border-radius:15px; font-size:0.9em;">${st}</span>
+                            </div>
+                            <p style="color:#636e72; font-weight:500; margin-bottom: 5px;">${o.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}</p>
+                            <p style="font-weight:700; color:#2d3436; margin: 5px 0;">Total Paid: ₹${o.total}</p>
+                            ${trackBarHtml}
+                            ${cancelBtnHtml}
+                            <div id="track-map-${o.k}" style="height:200px; width:100%; margin-top:20px; border-radius:15px; display:none; border:3px solid var(--primary-color);"></div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+                setTimeout(() => {
+                    arr.forEach(o => {
+                        if (o.status === 'Out for Delivery' && o.orderType === 'Delivery' && o.location) {
+                            const mapId = `track-map-${o.k}`; const mapEl = document.getElementById(mapId);
+                            if(mapEl && mapEl.innerHTML === "") {
+                                mapEl.style.display = 'block'; 
+                                try {
+                                    const trackMap = L.map(mapId).setView([o.location.lat, o.location.lng], 14); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(trackMap); L.marker([o.location.lat, o.location.lng]).addTo(trackMap).bindPopup("Your Location");
+                                    const carIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/741/741407.png', iconSize:[30, 30] }); let driverMarker = L.marker([o.location.lat, o.location.lng], {icon: carIcon}).addTo(trackMap);
+                                    db.ref(`orders/${o.k}/driverLocation`).on('value', dSnap => { if(dSnap.exists()) { const dLoc = dSnap.val(); driverMarker.setLatLng([dLoc.lat, dLoc.lng]); trackMap.setView([dLoc.lat, dLoc.lng]); } });
+                                } catch(e) { console.log('Map Error', e); }
+                            }
+                        }
+                    });
+                }, 300);
+            });
+        }
+
+        document.getElementById('locationSelectorBtn').addEventListener('click', () => {
+            const locText = document.getElementById('current-location-text');
+            locText.textContent = "Fetching location...";
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (p) => {
+                        fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${p.coords.latitude}&longitude=${p.coords.longitude}&localityLanguage=en`)
+                        .then(r => r.json())
+                        .then(d => {
+                            let area = d.locality || d.city || 'Unknown Location';
+                            locText.textContent = area + (d.principalSubdivision ? `, ${d.principalSubdivision}` : '');
+                        }).catch(() => locText.textContent = "Location not found");
+                    }, 
+                    (err) => {
+                        locText.textContent = "Location access denied";
+                    }
+                );
+            } else {
+                locText.textContent = "Geolocation not supported";
+            }
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => { 
+            const searchTerm = e.target.value.toLowerCase().trim(); 
+            highlightCategory('All'); 
+            activeCategoryFilter = 'All'; 
+            
+            if (searchTerm === '') {
+                document.getElementById('dishesSectionTitle').innerHTML = 'Recommended for You'; 
+                document.getElementById('dishesContainer').className = 'horizontal-scroll';
+                renderDishes(allDishesData, 'dishesContainer');
+            } else {
+                document.getElementById('dishesSectionTitle').innerHTML = 'Search Results'; 
+                document.getElementById('dishesContainer').className = 'dishes-grid'; 
+                const filteredDishes = allDishesData.filter(dish => dish.name && dish.name.toLowerCase().includes(searchTerm));
+                renderDishes(filteredDishes, 'dishesContainer'); 
+            }
+        });
+
+        window.startVoiceSearch = () => {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                alert("Voice search is not supported in your browser.");
+                return;
+            }
+            
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-IN';
+            recognition.start();
+            
+            const micIcon = document.querySelector('.mic-icon');
+            micIcon.style.color = 'var(--danger)';
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const searchInput = document.getElementById('searchInput');
+                searchInput.value = transcript;
+                
+                micIcon.style.color = 'var(--primary-color)';
+                searchInput.dispatchEvent(new Event('input')); 
+            };
+            
+            recognition.onerror = () => {
+                micIcon.style.color = 'var(--primary-color)';
+                alert("Voice not recognized. Please try again.");
+            };
+        };
+    </script>
+</body>
+</html>
