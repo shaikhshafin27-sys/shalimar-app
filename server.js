@@ -75,13 +75,13 @@ app.post('/send-otp', async (req, res) => {
         </div>
         <div style="padding: 30px; text-align: center;">
             <h2>OTP: ${otp}</h2>
-            <p>Verification ke liye is code ka istemal karein.</p>
+            <p>&copy; 2026 Shalimar Premium Delights. ALL Rights Reserved.</p>
         </div>
     </div>`;
 
     try {
         await transporter.sendMail({
-            from: '"Shalimar" <shaikhshafin27@gmail.com>',
+            from: '"Shalimar Premium" <shaikhshafin27@gmail.com>',
             to: email,
             subject: `Verification Code: ${otp}`,
             html: emailTemplate
