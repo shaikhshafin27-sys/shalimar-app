@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shalimar Admin</title>
     
-    <!-- YAHAN AAPKA MANIFEST JSON ADD KIYA GAYA HAI (APP ICON & COLOR KE LIYE) -->
+    <!-- MANIFEST JSON (APP ICON & COLOR) -->
     <link rel="manifest" href='data:application/manifest+json,{"name":"Shalimar Food Delivery","short_name":"Shalimar","start_url":"/index.html","display":"standalone","background_color":"#009432","theme_color":"#009432","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/3500/3500833.png","sizes":"512x512","type":"image/png"}]}'>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    
+    <!-- CHART.JS LINK -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         :root {
@@ -58,25 +61,9 @@
         .close-modal { position: absolute; right: 20px; top: 20px; font-size: 1.5em; cursor: pointer; }
         .form-group { margin-bottom: 15px; } .form-group label { display: block; margin-bottom: 5px; font-weight: 500; } .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 16px; }
         @media (max-width: 768px) { body { flex-direction: column; } .mobile-header { display: flex; } .sidebar { position: fixed; top: 0; bottom: 0; left: -260px; height: 100%; width: 250px; } .sidebar.active { left: 0; box-shadow: 5px 0 15px rgba(0,0,0,0.1); } .sidebar-overlay.active { display: block; opacity: 1; } .main-content { padding: 15px; padding-top: 80px; width: 100%; box-sizing: border-box; } .header-title { font-size: 1.5em; } .stats-grid { grid-template-columns: 1fr; } .menu-grid { grid-template-columns: 1fr 1fr; } }
-        
-        /* TOAST NOTIFICATION STYLES */
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 15px; }
-        .toast { background: var(--success); color: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; display: flex; align-items: center; gap: 15px; font-weight: 500; min-width: 250px; border-left: 5px solid #1e8449; }
-        .toast i { font-size: 1.8em; background: rgba(255,255,255,0.2); padding: 10px; border-radius: 50%; }
-        .toast .toast-info { display: flex; flex-direction: column; }
-        .toast .toast-info strong { font-size: 1.1em; }
-        @keyframes slideInRight { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes ring { 0% { transform: rotate(0); } 25% { transform: rotate(20deg); } 50% { transform: rotate(-20deg); } 75% { transform: rotate(20deg); } 100% { transform: rotate(0); } }
-        .ringing-bell { animation: ring 0.4s ease infinite; }
     </style>
 </head>
 <body>
-
-    <!-- AUDIO FOR RINGTONE -->
-    <audio id="orderSound" src="https://actions.google.com/sounds/v1/alarms/positive_bell.ogg" preload="auto"></audio>
-
-    <!-- TOAST CONTAINER -->
-    <div id="toast-container"></div>
 
     <div id="authOverlay">
         <div class="login-box">
@@ -114,6 +101,15 @@
                 <div class="stat-card"><div class="stat-info"><h3 id="stat-orders">0</h3><p>Total Orders</p></div><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div></div>
                 <div class="stat-card"><div class="stat-info"><h3 id="stat-dishes">0</h3><p>Active Dishes</p></div><div class="stat-icon"><i class="fas fa-hamburger"></i></div></div>
             </div>
+
+            <!-- SALES CHART CONTAINER YAHAN ADD KIYA GAYA HAI -->
+            <div class="stat-card" style="margin-top: 25px; height: 300px; display: block;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 1.2em;">Sales Trend (Last 7 Days)</h3>
+                <div style="position: relative; height: 230px; width: 100%;">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+
         </div>
 
         <div id="orders" class="section">
@@ -243,18 +239,21 @@
         
         const auth = firebase.auth(); 
         const db = firebase.database();
-        const messaging = firebase.messaging(); // <-- Naya Code yahan add hua
+        const messaging = firebase.messaging(); 
         
         const authOverlay = document.getElementById('authOverlay');
         const loginBtn = document.getElementById('loginBtn'); 
         const logoutBtn = document.getElementById('logoutBtn');
         
+        // Auth Listener 
         auth.onAuthStateChanged(user => { 
             if (user) { 
                 authOverlay.style.display = 'none'; 
+                requestPermission(); // Permission mangna shuru
                 initAdmin(); 
             } else { 
                 authOverlay.style.display = 'flex'; 
+                console.log("Admin logged out");
             } 
         });
         
@@ -289,105 +288,202 @@
             }); 
         });
 
-        // 1. Notification Permission Function
-    function requestPermission() {
-        if (!("Notification" in window)) {
-            console.log("Browser notifications support nahi karta.");
-            return;
-        }
-
-        Notification.requestPermission().then((permission) => {
-            if (permission === "granted") {
-                console.log("Permission mil gayi!");
-                
-                // Apni VAPID Key yahan ' ' ke beech mein likhein
-                const myVapidKey = 'BIsjdnwZK1oTtQIz67tObQeMdykUblC8pF_ZtWDKnZZmA-9Ev5knF_hGPe6XcbCSObOTBBwxHoNSQ0z6GrcOyoc'; 
-
-                messaging.getToken({ vapidKey: myVapidKey }).then((token) => {
-                    if (token) {
-                        const adminId = auth.currentUser ? auth.currentUser.uid : 'default_admin'; 
-                        db.ref('adminTokens/' + adminId).set(token);
-                        console.log("Admin Token Save Ho Gaya!");
-                    }
-                }).catch((err) => console.log('Token Error:', err));
+        // ==========================================
+        // 1. NOTIFICATION PERMISSION LOGIC
+        // ==========================================
+        function requestPermission() {
+            if (!("Notification" in window)) {
+                console.log("Browser notifications support nahi karta.");
+                return;
             }
-        });
-    }
 
-    // 2. Admin Logic Initializer
-    function initAdmin() {
-        loadOrders();
-        loadSettings();
-        loadDishes();
-        console.log("Admin Dashboard Ready!");
-    }
+            Notification.requestPermission().then((permission) => {
+                if (permission === "granted") {
+                    console.log("Permission mil gayi!");
+                    
+                    // Apni VAPID Key yahan ' ' ke beech mein likhein
+                    const myVapidKey = 'YOUR_PUBLIC_VAPID_KEY'; 
 
-    // 3. Auth Listener (Ye sabko chalu karega)
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            requestPermission();
-            initAdmin(); 
-        } else {
-            console.log("Admin logged out");
+                    messaging.getToken({ vapidKey: myVapidKey }).then((token) => {
+                        if (token) {
+                            const adminId = auth.currentUser ? auth.currentUser.uid : 'default_admin'; 
+                            db.ref('adminTokens/' + adminId).set(token);
+                            console.log("Admin Token Save Ho Gaya!");
+                        }
+                    }).catch((err) => console.log('Token Error:', err));
+                }
+            });
         }
-    });
 
+        // ==========================================
+        // 2. ADMIN INIT
+        // ==========================================
         function initAdmin() { 
-            // Login hote hi ya page load hote hi permission maangein
-            requestPermission(); 
-            
             fetchOrders(); 
             fetchCategories(); 
             fetchDishes(); 
             fetchRestaurants(); 
             fetchSettings(); 
+            console.log("Admin Dashboard Ready!");
         }
 
-        let initialLoad = true;
-        let knownOrders = new Set();
+        // ==========================================
+        // 3. FETCH ORDERS & CHART LOGIC (UPDATED)
+        // ==========================================
+        let lastOrderCount = 0;
+        const orderSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); 
 
-        function playSound() {
-            const audio = document.getElementById('orderSound');
-            audio.currentTime = 0;
-            let playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => { console.log("Browser blocked auto-play sound", error); });
-            }
-        }
+        function fetchOrders() {
+            db.ref('orders').on('value', snap => {
+                const currentCount = snap.numChildren();
+                
+                // Agar naya order aaya hai toh bell bajao aur notification bhejo
+                if (lastOrderCount > 0 && currentCount > lastOrderCount) {
+                    orderSound.play().catch(e => console.log("Sound play error:", e));
+                    
+                    if (Notification.permission === "granted") {
+                        new Notification("🚨 Naya Order Aaya Hai!", {
+                            body: "Shalimar Dashboard check karein.",
+                            icon: "https://cdn-icons-png.flaticon.com/512/5900/5900595.png"
+                        });
+                    }
+                }
+                
+                lastOrderCount = currentCount;
 
-        function showToast(order) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.innerHTML = `
-                <i class="fas fa-bell ringing-bell"></i> 
-                <div class="toast-info">
-                    <strong>New Order Received!</strong>
-                    <span>₹${order.total} | ${order.userEmail || 'Guest'}</span>
-                </div>
-            `;
-            container.appendChild(toast);
-            setTimeout(() => { toast.remove(); }, 6000);
-        }
+                // Table Display Logic
+                const tbody = document.getElementById('ordersTableBody');
+                tbody.innerHTML = '';
+                
+                let totalRev = 0; 
+                let totalOrders = 0; 
+                const ordersArray =[];
 
-        function showBrowserPush(order) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const push = new Notification("Shalimar App - New Order! 🍔", {
-                    body: `Amount: ₹${order.total}\nFrom: ${order.userEmail || 'Guest'}`,
-                    icon: "https://cdn-icons-png.flaticon.com/512/3500/3500833.png",
-                    requireInteraction: true 
+                snap.forEach(child => { 
+                    const orderData = { id: child.key, ...child.val() };
+                    ordersArray.push(orderData); 
                 });
-                push.onclick = function() {
-                    window.focus(); 
-                    this.close();
-                };
+
+                ordersArray.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                ordersArray.forEach(order => {
+                    totalRev += parseFloat(order.total || 0); 
+                    totalOrders++;
+                    
+                    const itemsString = order.items ? order.items.map(i => `${i.quantity}x ${i.name}`).join(', ') : 'No items';
+                    let typeBadge = order.orderType === 'Pickup' ? '<span class="badge-type badge-pickup">Pickup</span>' : '<span class="badge-type">Delivery</span>';
+                    
+                    let deleteBtnHtml = order.status === 'Cancelled' ? `<button onclick="deleteItem('orders', '${order.id}')" style="margin-left:10px; padding:6px 10px; background:var(--danger); color:white; border:none; border-radius:5px; cursor:pointer;" title="Delete Cancelled Order"><i class="fas fa-trash"></i></button>` : '';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td><span style="font-family:monospace; font-size:0.8em;">${order.id.substring(1, 8)}...</span><br>${typeBadge}</td>
+                        <td><strong>${order.userEmail || order.email || 'Guest'}</strong><br><span style="font-size:0.8em; color:var(--light-text);">${order.phone || '-'}</span></td>
+                        <td style="font-size:0.9em;">${itemsString}</td>
+                        <td style="font-weight:600;">₹${order.total}</td>
+                        <td style="font-size:0.9em;">${order.address || '-'}</td>
+                        <td>
+                            <div style="display:flex; align-items:center;">
+                                <select class="status-select" onchange="updateStatus('${order.id}', this.value)" style="color: ${order.status === 'Delivered' ? 'var(--success)' : (order.status === 'Cancelled' ? 'var(--danger)' : 'var(--primary-color)')}">
+                                    <option value="Placed" ${order.status === 'Placed' ? 'selected' : ''}>Placed</option>
+                                    <option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option>
+                                    <option value="Out for Delivery" ${order.status === 'Out for Delivery' ? 'selected' : ''}>On Way</option>
+                                    <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                                    <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                                </select>
+                                ${deleteBtnHtml}
+                            </div>
+                        </td>`;
+                    tbody.appendChild(row);
+                });
+                
+                document.getElementById('stat-revenue').textContent = '₹' + totalRev.toFixed(2); 
+                document.getElementById('stat-orders').textContent = totalOrders;
+
+                // Update the chart with new order data
+                updateSalesChart(ordersArray);
+            });
+        }
+        
+        window.updateStatus = (orderId, newStatus) => { db.ref('orders/' + orderId).update({ status: newStatus }); };
+
+        window.deleteBulkCancelled = () => {
+            if(confirm('Are you sure you want to delete ALL Cancelled orders permanently?')) {
+                db.ref('orders').once('value', snapshot => {
+                    let updates = {};
+                    let count = 0;
+                    snapshot.forEach(child => {
+                        if(child.val().status === 'Cancelled') {
+                            updates[child.key] = null; 
+                            count++;
+                        }
+                    });
+                    
+                    if(count > 0) {
+                        db.ref('orders').update(updates).then(() => alert(`${count} Cancelled orders deleted successfully.`));
+                    } else {
+                        alert("No cancelled orders found.");
+                    }
+                });
             }
+        };
+
+        // ==========================================
+        // 4. CHART JS LOGIC
+        // ==========================================
+        let salesChart;
+
+        function updateSalesChart(orders) {
+            const canvas = document.getElementById('salesChart');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Pichle 7 din ka data nikalna
+            const last7Days = {};
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                last7Days[d.toLocaleDateString()] = 0;
+            }
+
+            // Orders ko date ke hisab se joddna (sirf Delivered wale)
+            orders.forEach(o => {
+                if (o.status === 'Delivered' && o.timestamp) {
+                    const date = new Date(o.timestamp).toLocaleDateString();
+                    if (last7Days[date] !== undefined) {
+                        last7Days[date] += parseFloat(o.total || 0);
+                    }
+                }
+            });
+
+            const labels = Object.keys(last7Days);
+            const data = Object.values(last7Days);
+
+            if (salesChart) salesChart.destroy(); // Purana chart delete karke naya banana
+
+            salesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets:[{
+                        label: 'Earnings (₹)',
+                        data: data,
+                        borderColor: '#009432',
+                        backgroundColor: 'rgba(0, 148, 50, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
         }
 
         // ==========================================
-        // DATA FETCHING & UI LOGIC
+        // BAAKI MODULES (DISHES, CATEGORIES, SETTINGS)
         // ==========================================
-
         function fetchSettings() {
             db.ref('settings').on('value', snap => {
                 if (snap.exists()) {
@@ -460,109 +556,6 @@
                 }); 
             } else { alert("Please enter Name and Icon/Image URL"); } 
         });
-
-        let lastOrderCount = 0;
-    const orderSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); 
-
-    function fetchOrders() {
-        db.ref('orders').on('value', snap => {
-            const currentCount = snap.numChildren();
-            
-            // Agar naya order aaya hai toh bell bajao
-            if (lastOrderCount > 0 && currentCount > lastOrderCount) {
-                orderSound.play().catch(e => console.log("Sound play error:", e));
-                
-                // Screen par popup bhi dikhao
-                if (Notification.permission === "granted") {
-                    new Notification("🚨 Naya Order Aaya Hai!", {
-                        body: "Shalimar Dashboard check karein.",
-                        icon: "https://cdn-icons-png.flaticon.com/512/5900/5900595.png"
-                    });
-                }
-            }
-            
-            lastOrderCount = currentCount;
-
-            // --- Aapka baaki ka purana table display logic yahan rahega ---
-            const tbody = document.getElementById('orderTableBody');
-            tbody.innerHTML = '';
-            snap.forEach(child => {
-                const o = child.val();
-                tbody.innerHTML += `<tr>
-                    <td>#${child.key.substring(1,6)}</td>
-                    <td>${o.email}</td>
-                    <td>${o.total}</td>
-                    <td><span class="status-badge">${o.status}</span></td>
-                </tr>`;
-            });
-        
-    
-
-                if (newOrdersReceived.length > 0) {
-                    newOrdersReceived.forEach(order => {
-                        playSound();
-                        showToast(order);
-                        showBrowserPush(order);
-                    });
-                }
-                initialLoad = false;
-
-                orders.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-                orders.forEach(order => {
-                    totalRev += parseFloat(order.total); totalOrders++;
-                    const itemsString = order.items ? order.items.map(i => `${i.quantity}x ${i.name}`).join(', ') : 'No items';
-                    let typeBadge = order.orderType === 'Pickup' ? '<span class="badge-type badge-pickup">Pickup</span>' : '<span class="badge-type">Delivery</span>';
-                    
-                    let deleteBtnHtml = order.status === 'Cancelled' ? `<button onclick="deleteItem('orders', '${order.id}')" style="margin-left:10px; padding:6px 10px; background:var(--danger); color:white; border:none; border-radius:5px; cursor:pointer;" title="Delete Cancelled Order"><i class="fas fa-trash"></i></button>` : '';
-
-                    const row = document.createElement('tr');
-                    row.innerHTML = `<td><span style="font-family:monospace; font-size:0.8em;">${order.id.substring(1, 8)}...</span><br>${typeBadge}</td>
-                        <td><strong>${order.userEmail || 'Guest'}</strong><br><span style="font-size:0.8em; color:var(--light-text);">${order.phone || '-'}</span></td>
-                        <td style="font-size:0.9em;">${itemsString}</td>
-                        <td style="font-weight:600;">₹${order.total}</td>
-                        <td style="font-size:0.9em;">${order.address || '-'}</td>
-                        <td>
-                            <div style="display:flex; align-items:center;">
-                                <select class="status-select" onchange="updateStatus('${order.id}', this.value)" style="color: ${order.status === 'Delivered' ? 'var(--success)' : (order.status === 'Cancelled' ? 'var(--danger)' : 'var(--primary-color)')}">
-                                    <option value="Placed" ${order.status === 'Placed' ? 'selected' : ''}>Placed</option>
-                                    <option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option>
-                                    <option value="Out for Delivery" ${order.status === 'Out for Delivery' ? 'selected' : ''}>On Way</option>
-                                    <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
-                                    <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
-                                </select>
-                                ${deleteBtnHtml}
-                            </div>
-                        </td>`;
-                    tbody.appendChild(row);
-                });
-                document.getElementById('stat-revenue').textContent = '₹' + totalRev.toFixed(2); document.getElementById('stat-orders').textContent = totalOrders;
-            });
-        }
-        
-        window.updateStatus = (orderId, newStatus) => { db.ref('orders/' + orderId).update({ status: newStatus }); };
-
-        window.deleteBulkCancelled = () => {
-            if(confirm('Are you sure you want to delete ALL Cancelled orders permanently?')) {
-                db.ref('orders').once('value', snapshot => {
-                    let updates = {};
-                    let count = 0;
-                    snapshot.forEach(child => {
-                        if(child.val().status === 'Cancelled') {
-                            updates[child.key] = null; 
-                            count++;
-                        }
-                    });
-                    
-                    if(count > 0) {
-                        db.ref('orders').update(updates).then(() => {
-                            alert(`${count} Cancelled orders deleted successfully.`);
-                        });
-                    } else {
-                        alert("No cancelled orders found.");
-                    }
-                });
-            }
-        };
 
         function fetchDishes() {
             db.ref('dishes').on('value', snapshot => {
